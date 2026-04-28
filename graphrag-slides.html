@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>지식그래프 & GraphRAG</title>
+  <style>
+    :root {
+      --bg: #f5f4f0;
+      --card: #ffffff;
+      --border: #e2e0d8;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --accent: #2d5be3;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 48px 24px 80px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    header h1 {
+      font-size: clamp(20px, 4vw, 32px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    header p {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .slides {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .slide {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .slide-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .slide-num {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--accent);
+      background: rgba(45,91,227,0.08);
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+    .slide-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .slide img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .slide-desc {
+      padding: 16px 24px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13.5px;
+      line-height: 1.75;
+      color: #3a3a3a;
+    }
+    .slide-desc p {
+      margin-bottom: 10px;
+    }
+    .slide-desc p:last-child {
+      margin-bottom: 0;
+    }
+    .slide-desc ul {
+      padding-left: 18px;
+      margin-top: 6px;
+    }
+    .slide-desc ul li {
+      margin-bottom: 5px;
+    }
+    .slide-desc strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .slide-desc code {
+      font-family: "SF Mono", "Menlo", monospace;
+      background: rgba(45,91,227,0.07);
+      color: var(--accent);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12.5px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>지식그래프 & GraphRAG</h1>
+  <p>여행 플랫폼 검색 시스템 아키텍처 제안</p>
+</header>
+
+<div class="slides">
+
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-num">01</span>
+      <span class="slide-title">지식그래프의 트리플 구조</span>
+    </div>
+    <div class="slide-desc">
+      <p>지식그래프는 모든 데이터를 <strong>주어(노드) → 술어(엣지) → 목적어(노드)</strong> 형태의 트리플로 표현합니다. 단순한 키-값 저장이 아니라, <em>관계</em>와 <em>강도</em>까지 함께 저장하는 것이 핵심입니다.</p>
+      <ul>
+        <li><code>하코네 료칸 →[HAS_STYLE, weight=0.95]→ 힐링·휴양</code> — 료칸이 힐링 스타일임을 0.95라는 가중치로 표현. 숫자가 클수록 해당 성격이 강합니다.</li>
+        <li><code>유저 #1042 →[CLICKED_ON, count=3]→ 하코네 료칸</code> — 유저의 행동 로그도 동일한 트리플로 저장. 클릭 횟수와 마지막 접근일이 엣지 속성으로 기록됩니다.</li>
+      </ul>
+      <p>이 구조 덕분에 "힐링 스타일 숙소를 자주 본 유저" 같은 복합 조건을 그래프 탐색 한 번으로 추론할 수 있습니다.</p>
+    </div>
+    <img src="img/01.png" alt="지식그래프의 트리플 구조 — 주어·술어·목적어 예시">
+  </div>
+
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-num">02</span>
+      <span class="slide-title">ES 색인 데이터 기준 구축 아이디어</span>
+    </div>
+    <div class="slide-desc">
+      <p>기존 Elasticsearch 색인 데이터를 <strong>4개 계층 노드</strong>로 재해석해 지식그래프를 구성하는 방안입니다. 새로운 데이터를 수집하는 것이 아니라, 이미 보유한 ES 데이터를 그래프 구조로 재활용하는 것이 핵심입니다.</p>
+      <ul>
+        <li><strong>L1 지역 계층</strong> — <code>Nation → City → Landmark</code> 계층 구조. ES의 <code>nation/city/landmark</code> 필드에서 바로 추출 가능합니다.</li>
+        <li><strong>L2 상품 계층</strong> — Package·Ticket 노드를 지역과 연결. <code>LOCATED_IN</code>·<code>INCLUDES</code> 엣지로 "어느 지역의 어떤 상품"인지 관계를 구성합니다.</li>
+        <li><strong>L3 스타일·의미 계층</strong> — 상품에 붙은 키워드·스타일 태그를 <code>HAS_STYLE</code>·<code>RELATED_TO</code> 엣지로 연결. MD가 설정한 10~30개 시소러스가 그래프 가중치가 됩니다.</li>
+        <li><strong>L4 사용자 행동 계층</strong> — 로그인 유저의 검색어·클릭을 <code>SEARCHED</code>·<code>CLICKED_ON</code> 엣지로 저장. NER로 의도를 추출해 그래프 허브에 연결합니다.</li>
+      </ul>
+    </div>
+    <img src="img/02.png" alt="ES 색인 데이터 기준 4계층 구축 아이디어">
+  </div>
+
+  <div class="slide">
+    <div class="slide-header">
+      <span class="slide-num">03</span>
+      <span class="slide-title">지식그래프와 GraphRAG</span>
+    </div>
+    <div class="slide-desc">
+      <p>사용자가 <strong>"일본 힐링 여행 추천해줘"</strong>라고 입력하면, 시스템이 어떤 경로로 답변에 도달하는지 보여주는 전체 아키텍처 흐름도입니다.</p>
+      <ul>
+        <li><strong>① NER 추출</strong> — 검색어에서 <code>힐링(:Style)</code>, <code>일본(:Nation)</code> 두 개의 의도 노드를 뽑아냅니다.</li>
+        <li><strong>② 그래프 탐색</strong> — <code>일본 → 하코네</code> 지역 계층을 타고 내려가고, <code>HAS_STYLE=힐링</code> 엣지를 따라 관련 상품(하코네 료칸 2박 등)을 탐색합니다.</li>
+        <li><strong>③ 연관 속성 수집</strong> — 탐색된 상품의 스타일(<code>힐링·휴양</code>), 키워드(<code>온천</code>), 동반자 유형(<code>가족 여행</code>) 등 풍부한 맥락 정보를 함께 가져옵니다.</li>
+        <li><strong>④ LLM 답변 생성(GraphRAG)</strong> — 수집된 그래프 서브셋을 컨텍스트로 LLM에 전달해 근거 있는 추천 문장을 생성합니다. 단순 키워드 매칭이 아닌 <em>관계 기반 추론</em>이 가능해집니다.</li>
+      </ul>
+    </div>
+    <img src="img/03.png" alt="지식그래프와 GraphRAG 흐름 다이어그램">
+  </div>
+
+</div>
+
+</body>
+</html>
